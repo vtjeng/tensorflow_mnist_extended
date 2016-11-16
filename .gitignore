@@ -1,0 +1,11 @@
+# Ignore files related to iPython notebook
+.ipynb_checkpoints/*
+
+# Ignore data files
+MNIST_data/*
+
+# Ignore compiled Python files
+*.pyc
+
+# Ignore temporary Emacs files
+*~
