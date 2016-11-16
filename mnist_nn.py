@@ -85,7 +85,7 @@ def main(_):
         x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
     y_final = sess.run(y_conv, feed_dict={x: mnist.test.images,
-                                     y_: mnist.test.labels})
+                                     y_: mnist.test.labels, keep_prob: 1.0})
     view_incorrect(mnist.test.images, one_hot_to_index(y_final), one_hot_to_index(mnist.test.labels), 6, 8, 1)
     view_images(mnist.test.images, one_hot_to_index(y_final), one_hot_to_index(mnist.test.labels), 6, 8, 2)
     plt.show(block=True)
