@@ -4,7 +4,7 @@ import itertools
 
 def view_images(images, assigned_labels, correct_labels, num_rows, num_columns, fig_id):
     fig = plt.figure(fig_id, figsize=(num_columns+2, num_rows+2))
-    for i in xrange(num_rows*num_columns):
+    for i in range(num_rows*num_columns):
         ax = fig.add_subplot(num_rows,num_columns,i+1)
         image = np.reshape(images[i], [28, 28])
         assigned_label = assigned_labels[i]

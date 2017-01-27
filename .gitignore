@@ -9,3 +9,6 @@ MNIST_data/*
 
 # Ignore temporary Emacs files
 *~
+
+# Ignore generated image files
+*.png
