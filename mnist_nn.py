@@ -13,22 +13,12 @@ import os
 import matplotlib.pyplot as plt
 from visualize import view_images, view_incorrect, one_hot_to_index
 from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR
+import operator
+from functools import reduce
 
 from tensorflow.examples.tutorials.mnist import input_data
 
 import tensorflow as tf
-
-
-# def weight_variable(shape):
-#     # weights initialized with small amount of noise for symmetry breaking, and to prevent 0 gradients
-#     initial = tf.truncated_normal(shape, stddev=0.1)
-#     return tf.Variable(initial)
-#
-#
-# def bias_variable(shape):
-#     # bias initialized as slight positive number to avoid dead neurons.
-#     initial = tf.constant(0.1, shape=shape)
-#     return tf.Variable(initial)
 
 
 def weight_variable(shape, name=''):
@@ -38,25 +28,22 @@ def weight_variable(shape, name=''):
             shape,
             stddev=sigma,
         ))
-        tf.histogram_summary('%s/weight' % (name), weight)
+        tf.summary.histogram('%s/weight' % (name), weight)
         return weight
 
 
 def bias_variable(shape, name=''):
     with tf.name_scope('bias'):
         bias = tf.Variable(tf.zeros(shape=shape))
-        tf.histogram_summary('%s/bias' % (name), bias)
+        tf.summary.histogram('%s/bias' % (name), bias)
         return bias
 
-def conv2d(x, W):
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
-
-def conv_layer(input_layer, depth, window, stride=1, activation_fn=tf.nn.relu, pool=None, name=None):
+def conv2d_layer(input, depth, window, stride=1, activation_fn=tf.nn.relu, pool=None, name=None):
     """Construct a convolutional layer which takes input_layer as input.
     input_layer -> output
     (batch_size, height, width, input_depth) -> (batch_size, height, width, depth)
-    :param input_layer: input tensor
+    :param input: input tensor
     :param depth: number of convolution images
     :param stride:
     :param window: size of convolutional kernel (side length)
@@ -65,9 +52,9 @@ def conv_layer(input_layer, depth, window, stride=1, activation_fn=tf.nn.relu, p
     """
 
     with tf.name_scope(name):
-        assert(input_layer.get_shape().ndims == 4)
-        w = weight_variable([window, window, input_layer.get_shape().as_list()[-1], depth], name)
-        conv = tf.nn.conv2d(input_layer, w, strides=[1, stride, stride, 1], padding='SAME')
+        assert(input.get_shape().ndims == 4)
+        w = weight_variable([window, window, input.get_shape().as_list()[-1], depth], name)
+        conv = tf.nn.conv2d(input, w, strides=[1, stride, stride, 1], padding='SAME')
         b = bias_variable([depth], name)
         conv = tf.nn.bias_add(conv, b)
         with tf.name_scope('output/' + name):
@@ -75,13 +62,50 @@ def conv_layer(input_layer, depth, window, stride=1, activation_fn=tf.nn.relu, p
             if pool is not None:
                 (pool_ksize, pool_stride) = pool
                 output = tf.nn.max_pool(output, ksize=[1, pool_ksize, pool_ksize, 1], strides=[1, pool_stride, pool_stride, 1], padding='SAME')
-        tf.histogram_summary('%s/activation' % (name if name is not None else ''), output)
+        tf.summary.histogram('%s/activation' % (name if name is not None else ''), output)
         tf.add_to_collection(name, output)
         return output
 
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME')
+
+def conv_to_ff_layer(input):
+    """Collapse a convolutional layer into a single dimension (plus batch dimension).
+    input -> output
+    (batch_size, height, width, input_depth) -> (batch_size, height*width*input_depth)
+    :param input:
+    """
+    with tf.name_scope('conv_to_ff_layer'):
+        shape = input.get_shape().as_list()
+        output = tf.reshape(input, [-1, reduce(operator.mul, shape[1:], 1)])
+        return output
+
+
+def ff_layer(input, depth, activation_fn=tf.nn.relu, dropout=None, name=None):
+    """Construct a fully connected layer.
+    input -> output
+    (batch_size, input_depth) -> (batch_size, depth)
+    :param input:
+    :param depth: number of output nodes
+    :param activation_fn:
+    :param dropout: None if no dropout layer; keep_prob otherwise
+    :param name:
+    :param activation: boolean for whether to use the activation function (should be False for last layer)
+    :param variables: dict with keys ff_w and ff_b to add weight and bias variables to
+    """
+
+    with tf.name_scope(name):
+        assert(input.get_shape().ndims == 2)
+        w = weight_variable([input.get_shape().as_list()[-1], depth], name)
+        b = bias_variable([depth], name)
+        hidden = tf.nn.bias_add(tf.matmul(input, w), b)
+        with tf.name_scope('output/' + name):
+            if activation_fn is not None:
+                hidden = activation_fn(hidden, name='activation')
+            if dropout is not None:
+                keep_prob = dropout
+                hidden = tf.nn.dropout(hidden, keep_prob)
+        tf.summary.histogram('%s/output' % (name if name is not None else ''), hidden)
+        tf.add_to_collection(name, hidden)
+        return hidden
 
 
 
@@ -99,31 +123,16 @@ def main(_):
     # With tf.reshape, size of dimension with special value -1 computed so total size remains constant.
     x_image = tf.reshape(x, [-1,28,28,1])
 
-    W_conv1 = weight_variable([5, 5, 1, 32])
-    b_conv1 = bias_variable([32])
+    h_pool1 = conv2d_layer(x_image, depth=32, window=5, pool=(2,2), name='conv1')
 
-    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-    h_pool1 = max_pool_2x2(h_conv1)
-
-    W_conv2 = weight_variable([5, 5, 32, 64])
-    b_conv2 = bias_variable([64])
-
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-    h_pool2 = max_pool_2x2(h_conv2)
-
-    W_fc1 = weight_variable([7 * 7 * 64, 1024])
-    b_fc1 = bias_variable([1024])
-
-    h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+    h_pool2 = conv2d_layer(h_pool1, depth=64, window=5, pool=(2, 2), name='conv2')
 
     keep_prob = tf.placeholder(tf.float32)
-    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
-    W_fc2 = weight_variable([1024, 10])
-    b_fc2 = bias_variable([10])
+    h_pool2_flat = conv_to_ff_layer(h_pool2)
+    h_fc1_drop = ff_layer(h_pool2_flat, 1024, name='ff1', dropout=keep_prob)
 
-    y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+    y_conv = ff_layer(h_fc1_drop, depth=10, name='ff2', activation_fn=None)
 
     y_ = tf.placeholder(tf.float32, [None, 10])
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
@@ -131,7 +140,7 @@ def main(_):
     correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-    # Saving information to tensorboard.
+    # Saving information to Tensorboard.
     tf.summary.scalar('Cross Entropy', cross_entropy)
     tf.summary.scalar('Accuracy', accuracy)
     summary = tf.summary.merge_all()
