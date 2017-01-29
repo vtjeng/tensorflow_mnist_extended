@@ -8,105 +8,17 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import time
 import os
-import matplotlib.pyplot as plt
-from visualize import view_images, view_incorrect, one_hot_to_index
-from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR
-import operator
-from functools import reduce
+import time
 
+import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-import tensorflow as tf
-
-
-def weight_variable(shape, name=''):
-    sigma=0.1
-    with tf.name_scope('weight'):
-        weight = tf.Variable(tf.truncated_normal(
-            shape,
-            stddev=sigma,
-        ))
-        tf.summary.histogram('%s/weight' % (name), weight)
-        return weight
-
-
-def bias_variable(shape, name=''):
-    with tf.name_scope('bias'):
-        bias = tf.Variable(tf.zeros(shape=shape))
-        tf.summary.histogram('%s/bias' % (name), bias)
-        return bias
-
-
-def conv2d_layer(input, depth, window, stride=1, activation_fn=tf.nn.relu, pool=None, name=None):
-    """Construct a convolutional layer which takes input_layer as input.
-    input_layer -> output
-    (batch_size, height, width, input_depth) -> (batch_size, height, width, depth)
-    :param input: input tensor
-    :param depth: number of convolution images
-    :param stride:
-    :param window: size of convolutional kernel (side length)
-    :param pool: None for no pooling. (ksize, stride) otherwise.
-    :param name:
-    """
-
-    with tf.name_scope(name):
-        assert(input.get_shape().ndims == 4)
-        w = weight_variable([window, window, input.get_shape().as_list()[-1], depth], name)
-        conv = tf.nn.conv2d(input, w, strides=[1, stride, stride, 1], padding='SAME')
-        b = bias_variable([depth], name)
-        conv = tf.nn.bias_add(conv, b)
-        with tf.name_scope('output/' + name):
-            output = activation_fn(conv, name='activation')
-            if pool is not None:
-                (pool_ksize, pool_stride) = pool
-                output = tf.nn.max_pool(output, ksize=[1, pool_ksize, pool_ksize, 1], strides=[1, pool_stride, pool_stride, 1], padding='SAME')
-        tf.summary.histogram('%s/activation' % (name if name is not None else ''), output)
-        tf.add_to_collection(name, output)
-        return output
-
-
-def conv_to_ff_layer(input):
-    """Collapse a convolutional layer into a single dimension (plus batch dimension).
-    input -> output
-    (batch_size, height, width, input_depth) -> (batch_size, height*width*input_depth)
-    :param input:
-    """
-    with tf.name_scope('conv_to_ff_layer'):
-        shape = input.get_shape().as_list()
-        output = tf.reshape(input, [-1, reduce(operator.mul, shape[1:], 1)])
-        return output
-
-
-def ff_layer(input, depth, activation_fn=tf.nn.relu, dropout=None, name=None):
-    """Construct a fully connected layer.
-    input -> output
-    (batch_size, input_depth) -> (batch_size, depth)
-    :param input:
-    :param depth: number of output nodes
-    :param activation_fn:
-    :param dropout: None if no dropout layer; keep_prob otherwise
-    :param name:
-    :param activation: boolean for whether to use the activation function (should be False for last layer)
-    :param variables: dict with keys ff_w and ff_b to add weight and bias variables to
-    """
-
-    with tf.name_scope(name):
-        assert(input.get_shape().ndims == 2)
-        w = weight_variable([input.get_shape().as_list()[-1], depth], name)
-        b = bias_variable([depth], name)
-        hidden = tf.nn.bias_add(tf.matmul(input, w), b)
-        with tf.name_scope('output/' + name):
-            if activation_fn is not None:
-                hidden = activation_fn(hidden, name='activation')
-            if dropout is not None:
-                keep_prob = dropout
-                hidden = tf.nn.dropout(hidden, keep_prob)
-        tf.summary.histogram('%s/output' % (name if name is not None else ''), hidden)
-        tf.add_to_collection(name, hidden)
-        return hidden
-
+from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR, CHECKPOINT_DIR, EVAL_FREQUENCY, CHECKPOINT_FREQUENCY
+from constants import CHECKPOINT_HOURS, CHECKPOINT_MAX_KEEP
+from nn_util import ff_layer, conv2d_layer, conv_to_ff_layer
+from visualize import view_images, view_incorrect, one_hot_to_index
 
 
 # TODO: Save checkpoint file at end of run. Checkpoint file
@@ -115,38 +27,44 @@ def main(_):
     mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 
     timestamp = time.strftime("%Y-%m-%d_%H%M%S")
-    runId = timestamp
+    runID = timestamp
 
     ### Building the Graph
     # None indicates that the first dimension, corresponding to the batch size, can be of any size.
-    x = tf.placeholder(tf.float32, [None, 784])
+    x = tf.placeholder(tf.float32, [None, 784], name='original_image')
+
     # With tf.reshape, size of dimension with special value -1 computed so total size remains constant.
-    x_image = tf.reshape(x, [-1,28,28,1])
-
-    h_pool1 = conv2d_layer(x_image, depth=32, window=5, pool=(2,2), name='conv1')
-
+    x_image = tf.reshape(x, [-1,28,28,1], name='flattened_image')
+    h_pool1 = conv2d_layer(x_image, depth=32, window=5, pool=(2, 2), name='conv1')
     h_pool2 = conv2d_layer(h_pool1, depth=64, window=5, pool=(2, 2), name='conv2')
-
-    keep_prob = tf.placeholder(tf.float32)
-
+    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     h_pool2_flat = conv_to_ff_layer(h_pool2)
     h_fc1_drop = ff_layer(h_pool2_flat, 1024, name='ff1', dropout=keep_prob)
-
     y_conv = ff_layer(h_fc1_drop, depth=10, name='ff2', activation_fn=None)
 
     y_ = tf.placeholder(tf.float32, [None, 10])
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
+    with tf.name_scope('performance'):
+        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_), name='cross_entropy')
+        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name='accuracy')
+
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-    correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     # Saving information to Tensorboard.
     tf.summary.scalar('Cross Entropy', cross_entropy)
     tf.summary.scalar('Accuracy', accuracy)
     summary = tf.summary.merge_all()
 
-    tensorboard_prefix = os.path.join(TB_LOGS_DIR, runId)
-    tensorboard_train_prefix = os.path.join(tensorboard_prefix, 'training')
+    run_checkpoint_dir = os.path.join(CHECKPOINT_DIR, runID)
+    if not os.path.exists(run_checkpoint_dir):
+        os.makedirs(run_checkpoint_dir)
+    saver = tf.train.Saver(
+        max_to_keep=CHECKPOINT_MAX_KEEP,
+        keep_checkpoint_every_n_hours=CHECKPOINT_HOURS,
+    )
+
+    run_tb_logs_dir = os.path.join(TB_LOGS_DIR, runID)
+    tensorboard_train_prefix = os.path.join(run_tb_logs_dir, 'training') # TODO: improve naming
 
     with tf.Session() as sess:
         # Initialize summary write for TensorBoard
@@ -157,16 +75,22 @@ def main(_):
         num_iterations = NUM_EPOCHS * mnist.train.num_examples // BATCH_SIZE
         for step in range(num_iterations):
             batch = mnist.train.next_batch(BATCH_SIZE)
-            if step % 100 == 0:
+            if step % EVAL_FREQUENCY == 0:
                 train_feed_dict = {x: batch[0], y_: batch[1], keep_prob: 1.0}
                 train_accuracy = accuracy.eval(feed_dict=train_feed_dict)
                 train_summary = summary.eval(feed_dict=train_feed_dict)
                 print("step %d, training accuracy %g"%(step, train_accuracy))
                 train_writer.add_summary(train_summary, step)
                 train_writer.flush()
+            if step % CHECKPOINT_FREQUENCY == 0:
+                checkpoint_file = os.path.join(run_checkpoint_dir, 'cp')
+                print("\tSaving state in %s" % (checkpoint_file))
+                # Step is automatically added by passing in the global_step option.
+                saver.save(sess, checkpoint_file, global_step=step, write_meta_graph=False)
+                print("\tSave success.\n")
             train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
-        print("test accuracy %g"%accuracy.eval(feed_dict={
+        print("test accuracy %g" % accuracy.eval(feed_dict={
             x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
         y_final = sess.run(y_conv, feed_dict={x: mnist.test.images,

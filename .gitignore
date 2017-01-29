@@ -12,3 +12,13 @@ MNIST_data/*
 
 # Ignore generated image files
 *.png
+
+# Ignore .idea related files
+.idea/
+
+# Ignore log and checkpoint files
+checkpoints
+tb_logs
+
+# Ignore my standard sandbox file
+sandbox.py
