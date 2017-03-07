@@ -24,7 +24,7 @@ from visualize import view_images, view_incorrect, one_hot_to_index
 # TODO: Save checkpoint file at end of run. Checkpoint file
 # TODO: Enable recovery from specified checkpoint file.
 def main(_):
-    mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+    mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
 
     timestamp = time.strftime("%Y-%m-%d_%H%M%S")
     runID = timestamp
@@ -44,7 +44,7 @@ def main(_):
 
     y_ = tf.placeholder(tf.float32, [None, 10])
     with tf.name_scope('performance'):
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_), name='cross_entropy')
+        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_conv, labels=y_), name='cross_entropy')
         correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name='accuracy')
 
