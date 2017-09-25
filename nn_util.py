@@ -60,7 +60,7 @@ def conv_to_ff_layer(input_tensor):
         return output_tensor
 
 
-def ff_layer(input_tensor, depth, activation_fn=tf.nn.relu, dropout=None, name=None):
+def fc_layer(input_tensor, depth, activation_fn=tf.nn.relu, dropout=None, name=None):
     """Construct a fully connected layer.
     input -> output
     (batch_size, input_depth) -> (batch_size, depth)

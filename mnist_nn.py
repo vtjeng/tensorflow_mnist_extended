@@ -18,7 +18,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1
 from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR, CHECKPOINT_DIR, EVAL_FREQUENCY, CHECKPOINT_FREQUENCY
 from constants import CHECKPOINT_HOURS, CHECKPOINT_MAX_KEEP
-from nn_util import ff_layer, conv2d_layer, conv_to_ff_layer
+from nn_util import fc_layer, conv2d_layer, conv_to_ff_layer
 from visualize import view_images, view_incorrect, one_hot_to_index
 
 
@@ -36,12 +36,12 @@ def main(_):
 
     # With tf.reshape, size of dimension with special value -1 computed so total size remains constant.
     x_image = tf.reshape(x, [-1,28,28,1], name='flattened_image')
-    (h_pool1, w_conv1, b_conv1) = conv2d_layer(x_image, depth=NUM_CHANNELS_CONV1, window=5, pool=(2, 2), name='conv1')
-    (h_pool2, w_conv2, b_conv2) = conv2d_layer(h_pool1, depth=NUM_CHANNELS_CONV2, window=5, pool=(2, 2), name='conv2')
+    h_pool1 = conv2d_layer(x_image, depth=NUM_CHANNELS_CONV1, window=5, pool=(2, 2), name='conv1')
+    h_pool2 = conv2d_layer(h_pool1, depth=NUM_CHANNELS_CONV2, window=5, pool=(2, 2), name='conv2')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     h_pool2_flat = conv_to_ff_layer(h_pool2)
-    (h_fc1_drop, w_fc1, b_fc1) = ff_layer(h_pool2_flat, NUM_CHANNELS_FC1, name='ff1', dropout=keep_prob)
-    (y, w_y, b_y) = ff_layer(h_fc1_drop, depth=10, name='ff2', activation_fn=None)
+    h_fc1_drop = fc_layer(h_pool2_flat, NUM_CHANNELS_FC1, name='fc1', dropout=keep_prob)
+    y = fc_layer(h_fc1_drop, depth=10, name='fc2', activation_fn=None)
 
     y_ = tf.placeholder(tf.float32, [None, 10])
     with tf.name_scope('performance'):
