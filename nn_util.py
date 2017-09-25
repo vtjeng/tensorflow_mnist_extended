@@ -21,8 +21,8 @@ def bias_variable(shape):
 
 
 def conv2d_layer(input_tensor, depth, window, stride=1, activation_fn=tf.nn.relu, pool=None, name=None):
-    """Construct a convolutional layer which takes input_layer as input.
-    input_layer -> output
+    """Construct a convolutional layer.
+    input_tensor -> output_tensor
     (batch_size, height, width, input_depth) -> (batch_size, height, width, depth)
     :param input_tensor: input tensor
     :param depth: number of convolution images
@@ -39,13 +39,13 @@ def conv2d_layer(input_tensor, depth, window, stride=1, activation_fn=tf.nn.relu
         b = bias_variable([depth])
         conv = tf.nn.bias_add(conv, b)
         with tf.name_scope('output/' + name):
-            output = activation_fn(conv, name='activation')
+            output_tensor = activation_fn(conv, name='activation')
             if pool is not None:
                 (pool_ksize, pool_stride) = pool
-                output = tf.nn.max_pool(output, ksize=[1, pool_ksize, pool_ksize, 1], strides=[1, pool_stride, pool_stride, 1], padding='SAME')
-        tf.summary.histogram('activation', output)
-        tf.add_to_collection(name, output)
-        return output
+                output_tensor = tf.nn.max_pool(output_tensor, ksize=[1, pool_ksize, pool_ksize, 1], strides=[1, pool_stride, pool_stride, 1], padding='SAME')
+        tf.summary.histogram('activation', output_tensor)
+        tf.add_to_collection(name, output_tensor)
+        return output_tensor
 
 
 def conv_to_ff_layer(input_tensor):

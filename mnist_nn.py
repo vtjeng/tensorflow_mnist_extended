@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
+from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1
 from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR, CHECKPOINT_DIR, EVAL_FREQUENCY, CHECKPOINT_FREQUENCY
 from constants import CHECKPOINT_HOURS, CHECKPOINT_MAX_KEEP
 from nn_util import ff_layer, conv2d_layer, conv_to_ff_layer
@@ -35,17 +36,17 @@ def main(_):
 
     # With tf.reshape, size of dimension with special value -1 computed so total size remains constant.
     x_image = tf.reshape(x, [-1,28,28,1], name='flattened_image')
-    h_pool1 = conv2d_layer(x_image, depth=32, window=5, pool=(2, 2), name='conv1')
-    h_pool2 = conv2d_layer(h_pool1, depth=64, window=5, pool=(2, 2), name='conv2')
+    (h_pool1, w_conv1, b_conv1) = conv2d_layer(x_image, depth=NUM_CHANNELS_CONV1, window=5, pool=(2, 2), name='conv1')
+    (h_pool2, w_conv2, b_conv2) = conv2d_layer(h_pool1, depth=NUM_CHANNELS_CONV2, window=5, pool=(2, 2), name='conv2')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     h_pool2_flat = conv_to_ff_layer(h_pool2)
-    h_fc1_drop = ff_layer(h_pool2_flat, 1024, name='ff1', dropout=keep_prob)
-    y_conv = ff_layer(h_fc1_drop, depth=10, name='ff2', activation_fn=None)
+    (h_fc1_drop, w_fc1, b_fc1) = ff_layer(h_pool2_flat, NUM_CHANNELS_FC1, name='ff1', dropout=keep_prob)
+    (y, w_y, b_y) = ff_layer(h_fc1_drop, depth=10, name='ff2', activation_fn=None)
 
     y_ = tf.placeholder(tf.float32, [None, 10])
     with tf.name_scope('performance'):
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_conv, labels=y_), name='cross_entropy')
-        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
+        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y, labels=y_), name='cross_entropy')
+        correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name='accuracy')
 
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
@@ -86,14 +87,14 @@ def main(_):
                 checkpoint_file = os.path.join(run_checkpoint_dir, 'cp')
                 print("\tSaving state in %s" % (checkpoint_file))
                 # Step is automatically added by passing in the global_step option.
-                saver.save(sess, checkpoint_file, global_step=step, write_meta_graph=False)
+                saver.save(sess, checkpoint_file, global_step=step, write_meta_graph=True)
                 print("\tSave success.\n")
             train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
         print("test accuracy %g" % accuracy.eval(feed_dict={
             x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
-        y_final = sess.run(y_conv, feed_dict={x: mnist.test.images,
+        y_final = sess.run(y, feed_dict={x: mnist.test.images,
                                          y_: mnist.test.labels, keep_prob: 1.0})
         view_incorrect(mnist.test.images, one_hot_to_index(y_final), one_hot_to_index(mnist.test.labels), 6, 8, 1)
         view_images(mnist.test.images, one_hot_to_index(y_final), one_hot_to_index(mnist.test.labels), 6, 8, 2)
