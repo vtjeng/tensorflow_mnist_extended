@@ -42,7 +42,7 @@ def conv2d_layer(input_tensor, depth, window, stride=1, activation_fn=tf.nn.relu
             output_tensor = activation_fn(conv, name='activation')
             if pool is not None:
                 (pool_ksize, pool_stride) = pool
-                output_tensor = tf.nn.max_pool(output_tensor, ksize=[1, pool_ksize, pool_ksize, 1], strides=[1, pool_stride, pool_stride, 1], padding='SAME')
+                output_tensor = tf.nn.max_pool(output_tensor, ksize=[1, pool_ksize, pool_ksize, 1], strides=[1, pool_stride, pool_stride, 1], padding='SAME', name=name)
         tf.summary.histogram('activation', output_tensor)
         tf.add_to_collection(name, output_tensor)
         return output_tensor

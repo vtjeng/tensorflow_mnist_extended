@@ -3,6 +3,10 @@ import os
 """
 Parameters for neural network
 """
+WINDOW_1 = 3 # original value 5
+WINDOW_2 = 3 # original value 5
+POOL_1 = 2 # original value 2
+POOL_2 = 1 # original value 2
 NUM_CHANNELS_CONV1 = 4 # original value 32
 NUM_CHANNELS_CONV2 = 8 # original value 64
 NUM_CHANNELS_FC1 = 64 # original value 1024
@@ -11,7 +15,7 @@ NUM_CHANNELS_FC1 = 64 # original value 1024
 Parameters for training
 """
 BATCH_SIZE = 50
-NUM_EPOCHS = 320 # original value 20
+NUM_EPOCHS = 640 # original value 20
 
 """
 Parameters for monitoring training process + checkpointing

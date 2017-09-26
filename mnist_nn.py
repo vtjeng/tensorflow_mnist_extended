@@ -10,19 +10,20 @@ from __future__ import print_function
 import argparse
 import os
 import time
+import scipy.io as sio
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1
+from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1, WINDOW_1, WINDOW_2, POOL_1, POOL_2
 from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR, CHECKPOINT_DIR, EVAL_FREQUENCY, CHECKPOINT_FREQUENCY
 from constants import CHECKPOINT_HOURS, CHECKPOINT_MAX_KEEP
 from nn_util import fc_layer, conv2d_layer, conv_to_ff_layer
 from visualize import view_images, view_incorrect, one_hot_to_index
 
 
-# TODO: Save checkpoint file at end of run. Checkpoint file
+# TODO: Save checkpoint file at end of run.
 # TODO: Enable recovery from specified checkpoint file.
 def main(_):
     mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
@@ -36,8 +37,9 @@ def main(_):
 
     # With tf.reshape, size of dimension with special value -1 computed so total size remains constant.
     x_image = tf.reshape(x, [-1,28,28,1], name='flattened_image')
-    h_pool1 = conv2d_layer(x_image, depth=NUM_CHANNELS_CONV1, window=5, pool=(2, 2), name='conv1')
-    h_pool2 = conv2d_layer(h_pool1, depth=NUM_CHANNELS_CONV2, window=5, pool=(2, 2), name='conv2')
+    x_resize = tf.nn.avg_pool(x_image, [1, 2, 2, 1], [1, 2, 2, 1], padding = 'SAME', name = 'input-resize')
+    h_pool1 = conv2d_layer(x_resize, depth=NUM_CHANNELS_CONV1, window=WINDOW_1, pool=(POOL_1, POOL_1), name='conv1')
+    h_pool2 = conv2d_layer(h_pool1, depth=NUM_CHANNELS_CONV2, window=WINDOW_2, pool=(POOL_2, POOL_2), name='conv2')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     h_pool2_flat = conv_to_ff_layer(h_pool2)
     h_fc1_drop = fc_layer(h_pool2_flat, NUM_CHANNELS_FC1, name='fc1', dropout=keep_prob)
@@ -88,11 +90,31 @@ def main(_):
                 print("\tSaving state in %s" % (checkpoint_file))
                 # Step is automatically added by passing in the global_step option.
                 saver.save(sess, checkpoint_file, global_step=step, write_meta_graph=True)
+
+                d = sess.run({
+                    'x_resize':x_resize,
+                    'h_pool1':h_pool1,
+                    'h_pool2':h_pool2,
+                    'h_pool2_flat':h_pool2_flat,
+                    'h_fc1_drop':h_fc1_drop,
+                    'y': y},
+                    feed_dict={x: mnist.test.images[0:100], keep_prob: 1.0})
+
+                sio.savemat(
+                    os.path.join(run_checkpoint_dir, 'cp-{step}.mat'.format(step=step)),
+                    d
+                )
+
                 print("\tSave success.\n")
+
+
+
             train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
         print("test accuracy %g" % accuracy.eval(feed_dict={
             x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
+
+
 
         y_final = sess.run(y, feed_dict={x: mnist.test.images,
                                          y_: mnist.test.labels, keep_prob: 1.0})
