@@ -3,6 +3,7 @@
 
 # Ignore data files
 MNIST_data/*
+*.mat
 
 # Ignore compiled Python files
 *.pyc

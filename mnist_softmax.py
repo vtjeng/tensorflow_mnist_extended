@@ -23,13 +23,12 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import matplotlib.pyplot as plt
-from visualize import view_images, view_incorrect, one_hot_to_index
 
-# Import data
+import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-import tensorflow as tf
+from util.visualization import view_images, view_incorrect, one_hot_to_index
 
 FLAGS = None
 

@@ -8,20 +8,10 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import os
-import time
 
-import matplotlib.pyplot as plt
+import scipy.io as sio
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-
-from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1, WINDOW_1, WINDOW_2, POOL_1, POOL_2
-from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR, CHECKPOINT_DIR, EVAL_FREQUENCY, CHECKPOINT_FREQUENCY
-from constants import CHECKPOINT_HOURS, CHECKPOINT_MAX_KEEP
-from nn_util import fc_layer, conv2d_layer, conv_to_ff_layer
-from visualize import view_images, view_incorrect, one_hot_to_index
-import scipy.io as sio
-
 
 """
 Exports the MNIST test set, with the images resized from 784 to 28*28 then downsampled to 14*14

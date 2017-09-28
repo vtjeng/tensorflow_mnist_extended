@@ -23,7 +23,7 @@ def bias_variable(shape):
 def conv2d_layer(input_tensor, depth, window, stride=1, activation_fn=tf.nn.relu, pool=None, name=None):
     """Construct a convolutional layer.
     input_tensor -> output_tensor
-    (batch_size, height, width, input_depth) -> (batch_size, height, width, depth)
+    (batch_size, height, width, input_depth) -> (batch_size, TODO, TODO, depth)
     :param input_tensor: input tensor
     :param depth: number of convolution images
     :param stride:
