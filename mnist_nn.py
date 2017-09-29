@@ -18,7 +18,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 from constants import BATCH_SIZE, NUM_EPOCHS, TB_LOGS_DIR, CHECKPOINT_DIR, EVAL_FREQUENCY, CHECKPOINT_FREQUENCY
 from constants import CHECKPOINT_HOURS, CHECKPOINT_MAX_KEEP
-from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1, WINDOW_1, WINDOW_2, POOL_1, POOL_2
+from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1, WINDOW_1, WINDOW_2, POOL_1, POOL_2, PREPROCESS_POOL
 from util.neural_net import fc_layer, conv2d_layer, conv_to_ff_layer
 from util.visualization import view_images, view_incorrect, one_hot_to_index
 
@@ -37,7 +37,7 @@ def main(_):
 
     # With tf.reshape, size of dimension with special value -1 computed so total size remains constant.
     x_image = tf.reshape(x, [-1,28,28,1], name='flattened_image')
-    x_resize = tf.nn.avg_pool(x_image, [1, 2, 2, 1], [1, 2, 2, 1], padding = 'SAME', name = 'input-resize')
+    x_resize = tf.nn.avg_pool(x_image, [1, PREPROCESS_POOL, PREPROCESS_POOL, 1], [1, PREPROCESS_POOL, PREPROCESS_POOL, 1], padding ='SAME', name ='input-resize')
     h_pool1 = conv2d_layer(x_resize, depth=NUM_CHANNELS_CONV1, window=WINDOW_1, pool=(POOL_1, POOL_1), name='conv1')
     h_pool2 = conv2d_layer(h_pool1, depth=NUM_CHANNELS_CONV2, window=WINDOW_2, pool=(POOL_2, POOL_2), name='conv2')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')

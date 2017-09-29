@@ -28,7 +28,7 @@ from cleverhans_tutorials.tutorial_models import MLP, ReLU, Softmax, Flatten
 from util.cleverhans import AvgPool, Conv2D, MaxPool, Linear
 from tensorflow.python.platform import flags
 
-from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1, WINDOW_1, WINDOW_2, POOL_1, POOL_2
+from constants import NUM_CHANNELS_CONV1, NUM_CHANNELS_CONV2, NUM_CHANNELS_FC1, WINDOW_1, WINDOW_2, POOL_1, POOL_2, PREPROCESS_POOL
 from constants import CHECKPOINT_DIR
 
 
@@ -41,7 +41,7 @@ def get_minified_mnist_model():
     :return: A version of the mnist model parameterized by the values in constants.py
     """
     layers = [
-        AvgPool(2, 2),
+        AvgPool(PREPROCESS_POOL, PREPROCESS_POOL),
         Conv2D(NUM_CHANNELS_CONV1, (WINDOW_1, WINDOW_1), (1, 1), "SAME", "conv1", ),
         MaxPool(POOL_1, POOL_1),
         ReLU(),

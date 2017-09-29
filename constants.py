@@ -3,6 +3,7 @@ import os
 """
 Parameters for neural network
 """
+PREPROCESS_POOL = 2 # original value 1
 WINDOW_1 = 3 # original value 5
 WINDOW_2 = 3 # original value 5
 POOL_1 = 2 # original value 2
